@@ -25,32 +25,27 @@ const isNextToDeletedArea = (cell, prop, index, amount) =>
 
 const isADeletion = amount => amount < 0
 
-const reallocateMergedCells = (cells, prop, index, amount) => {
-  if (!isADeletion(amount)) {
-    return rellocateNotDeletion(cells, prop, index, amount)
+const reallocateMergedCells = (tableData) => {
+  if (!isADeletion(tableData.amount)) {
+    return rellocateNotDeletion(tableData)
   }
 
-  return reallocateDeletion(cells, prop, index, amount)
+  return reallocateDeletion(tableData)
 }
 
-const rellocateNotDeletion = (cells, prop, index, amount) => {
+const rellocateNotDeletion = ({cells, prop, index, amount}) => {
     return _.flatMap(cells, cell => {
-      if (cell[prop] < index && (!hasSpan(cell, prop) || cell[prop] + getSpan(cell, prop) <= index)) {
-        return [cell]
-      }
-
       if (cell[prop] < index && hasSpan(cell, prop) && cell[prop] + getSpan(cell, prop) > index) {
-        if (!isADeletion(amount)) {
           return [{ ...cell, [getSpanKey(prop)]: getSpan(cell, prop) + amount }]
-        }
-        return [cell]
       }
 
       return [cell]
     })
 }
 
-const reallocateDeletion = (cells, prop, index, amount) => {
+const reallocateDeletion = (tableData) => {
+  const {cells, prop, index, amount} = tableData
+
   return _.map(cells, cell => {
 
     if (willBeDeleted(cell, prop, index, amount)) {
@@ -66,7 +61,7 @@ const reallocateDeletion = (cells, prop, index, amount) => {
     }
 
     if (isNextToDeletedArea(cell, prop, index, (-amount))) {
-      const mergedCell = findMergedCells(cells, cell, prop, index, amount)
+      const mergedCell = findMergedCells(cell, tableData)
 
       if (mergedCell) {
         return {
@@ -82,7 +77,9 @@ const reallocateDeletion = (cells, prop, index, amount) => {
   })
 }
 
-const findMergedCells = (cells, cell, prop, index, amount) => {
+const findMergedCells = (cell, tableData) => {
+  const {cells, prop, index, amount} = tableData
+
   return _.find(cells, potentialMergedCell => {
     const sameComplimentaryCoordinate = hasSameComplimentaryCoordinate(potentialMergedCell, cell, prop)
     const isBeingRemoved = willBeDeleted(potentialMergedCell, prop, index, amount)
@@ -98,10 +95,14 @@ const findMergedCells = (cells, cell, prop, index, amount) => {
 
 const getCountDeletedOutsideMergedArea = (cell, prop, index, amount) => _.max([0, (index + (-amount)) - (cell[prop] + getSpan(cell, prop))])
 
-const removeCells = (cells, prop, index, amount) =>
-  _.filter(cells, cell => !willBeDeleted(cell, prop, index, amount))
+const removeCells = (tableData) => {
+  const {cells, prop, index, amount} = tableData
+  return _.filter(cells, cell => !willBeDeleted(cell, prop, index, amount))
+}
 
-const moveCells = (cells, prop, index, amount) => {
+const moveCells = (tableData) => {
+  const {cells, prop, index, amount} = tableData
+
   const result = _.flatMap(cells, cell => {
     if (cell[prop] < index) {
       return [cell]
@@ -120,11 +121,12 @@ const moveCells = (cells, prop, index, amount) => {
 }
 
 export const reallocate = (cells, prop, index, amount) => {
-  let paramCells = reallocateMergedCells(cells, prop, index, amount)
+  const tableData = {cells, prop, index, amount}
+  tableData.cells = reallocateMergedCells(tableData)
 
   if (isADeletion(amount)) {
-    paramCells = removeCells(paramCells, prop, index, amount)
+    tableData.cells = removeCells(tableData)
   }
 
-  return moveCells(paramCells, prop, index, amount)
+  return moveCells(tableData)
 }
