@@ -14,8 +14,10 @@ const mergedAreaIncludesCell = (mergedCell, prop, cell) =>
 const isInRange = (cell, prop, index, amount) =>
   cell[prop] >= index && cell[prop] < index + amount
 
-const willBeDeleted = (cell, prop, index, amount) =>
-  isADeletion(amount) && isInRange(cell, prop, index, Math.abs(amount))
+const willBeDeleted = (cell, tableData) => {
+  const {prop, index, amount} = tableData
+  return isADeletion(amount) && isInRange(cell, prop, index, Math.abs(amount)) 
+}
 
 const hasSameComplimentaryCoordinate = (cell1, cell2, prop) =>
   cell1[getComplimentaryCoordinate(prop)] === cell2[getComplimentaryCoordinate(prop)]
@@ -48,12 +50,12 @@ const reallocateDeletion = (tableData) => {
 
   return _.map(cells, cell => {
 
-    if (willBeDeleted(cell, prop, index, amount)) {
+    if (willBeDeleted(cell, tableData)) {
       return cell
     }
 
     if (hasSpan(cell, prop) && cell[prop] + getSpan(cell, prop) > index) {
-      const countOfDeletedOutsideMergedArea = getCountDeletedOutsideMergedArea(cell, prop, index, amount)
+      const countOfDeletedOutsideMergedArea = getCountDeletedOutsideMergedArea(cell, tableData)
       return {
         ...cell,
         [getSpanKey(prop)]: getSpan(cell, prop) - ((-amount) - countOfDeletedOutsideMergedArea)
@@ -78,26 +80,26 @@ const reallocateDeletion = (tableData) => {
 }
 
 const findMergedCells = (cell, tableData) => {
-  const {cells, prop, index, amount} = tableData
+  const {cells, prop} = tableData
 
   return _.find(cells, potentialMergedCell => {
     const sameComplimentaryCoordinate = hasSameComplimentaryCoordinate(potentialMergedCell, cell, prop)
-    const isBeingRemoved = willBeDeleted(potentialMergedCell, prop, index, amount)
+    const isBeingRemoved = willBeDeleted(potentialMergedCell, tableData)
     const hasPropSpan = hasSpan(potentialMergedCell, prop)
     const included = mergedAreaIncludesCell(potentialMergedCell, prop, cell)
 
-    return  sameComplimentaryCoordinate
-        && isBeingRemoved
-        && hasPropSpan
-        && included
+    return  sameComplimentaryCoordinate && isBeingRemoved && hasPropSpan && included
   })
 }
 
-const getCountDeletedOutsideMergedArea = (cell, prop, index, amount) => _.max([0, (index + (-amount)) - (cell[prop] + getSpan(cell, prop))])
+const getCountDeletedOutsideMergedArea = (cell, tableData) => {
+  const {prop, index, amount} = tableData
+  return _.max([0, (index + (-amount)) - (cell[prop] + getSpan(cell, prop))])
+}
 
 const removeCells = (tableData) => {
-  const {cells, prop, index, amount} = tableData
-  return _.filter(cells, cell => !willBeDeleted(cell, prop, index, amount))
+  const {cells} = tableData
+  return _.filter(cells, cell => !willBeDeleted(cell, tableData))
 }
 
 const moveCells = (tableData) => {
@@ -109,12 +111,9 @@ const moveCells = (tableData) => {
     }
 
     const newProp = cell[prop] + amount
-    if (newProp < 0) {
-      return []
-    }
+    const moved = { ...cell, [prop]: newProp }
 
-    const result = { ...cell, [prop]: cell[prop] + amount }
-    return [result]
+    return newProp < 0 ? [] : [moved]
   })
   
   return result
